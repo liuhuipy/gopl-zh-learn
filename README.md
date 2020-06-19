@@ -203,3 +203,38 @@ f函数里的x变量必须在堆上分配，因为它在函数退出后依然可
 从函数中逃逸了。相反，当g函数返回时，变量*y将是不可达的，也就是说可以马上被回收的。因此，*y并没有从函数g中逃逸，编译器可以选择在栈上分配*y的存储
 空间，也可以选择在堆上分配，然后由Go语言的GC回收这个变量的内存空间。虽然这里用的是new方式，其实在任何时候，你并不需为了编写正确的代码而要考虑变量
 的逃逸行为，要记住的是，逃逸的变量需要额外分配内存，同时对性能的优化可能会产生细微的影响。
+
+### 赋值
+使用赋值语句更新一个变量的值：
+```
+x = 1                           // 命名变量的赋值
+*p = true                       // 通过指针间接赋值
+person.name = "bob"             // 结构体字段赋值
+count[x] *= scale     // 数组、slice或map的元素赋值
+
+v := 1
+v++
+v--                 // 数值变量支持++递增和--递减语句
+
+i, j, k = 2, 3, 5
+x, y = y, x
+a[i], a[j] = a[j], a[i]
+```
+
+### 自定义类型
+用一个类型声明语句可以创建一个新的类型名称，和现有类型具有相同的底层结构：
+```
+type 类型名称 底层类型
+
+type Celsius float64
+type Fahrenheit float64
+```
+两个不同类型的值不可以进行比较，即使它们底层类型一样：
+```
+var c Celsius
+var f Fahrenheit
+fmt.Println(c == 0)         // true，Celsius和Fahrenheit类型的底层类型都是float64,零值为0
+fmt.Println(f == 0)         // true
+fmt.Println(c == f)         // compile error: type mismatch
+fmt.Println(c == Celsius(f))    // true，转换为统一类型后可以进行比较
+```
