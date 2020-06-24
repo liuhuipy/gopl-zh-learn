@@ -476,5 +476,49 @@ func Join(s [][]byte, sep []byte) []byte
 bytes包还提供了Buffer类型用于字节slice的缓存。一个Buffer开始是空的，但是随着string、byte或[]byte等类型数据的写入可以动态增长，一个
 bytes.Buffer变量并不需要初始化，因为零值也是有效的：
 ```
+package main
 
+import (
+	"bytes"
+	"fmt"
+)
+
+func main() {
+	fmt.Println(intToString([]int{1, 2, 3}))
+}
+
+func intToString(values []int) string {
+	var buf bytes.Buffer
+	buf.WriteByte('[')
+	for i, v := range values {
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+		fmt.Fprintf(&buf, "%d", v)
+	}
+	buf.WriteByte(']')
+	return buf.String()
+}
+```
+#### 字符串和数字的转换
+除了字符串、字符、字节之间的转换，字符串和数值之间的转换也比较常见。由strconv包提供这类转换功能。
+
+将一个整数转换为字符串，一种方法是用fmt.Sprintf返回一个格式化的字符串；另一种方法是strconv.Itoa("整数到ASCII")：
+```
+x := 123
+y := fmt.Sprintf("%d", x)
+fmt.Println(y, strconv.Itoa(x)) // 123 123
+```
+FormatInt和FormatUint函数可以用不同的进制来格式化数字：
+```
+fmt.Println(strconv.FormatInt(int64(x), 2)) // 1111011
+```
+fmt.Printf函数的%b、%d、%o和%x等参数提供功能往往比strconv包的Format函数方便很多，特别是需要在包含附加额外信息的时候：
+```
+s := fmt.Sprintf("x=%b", x)     // x=1111011
+```
+如果要将一个字符串解析为整数，可以使用strconv包的Atoi或ParseInt函数，还有用于解析无符号整数的ParseUInt函数：
+```
+x, err := strconv.Atoi("123")                   // x is an int
+y, err := strconv.ParseInt("123", 10, 64)       // base 10, up to 64 bits
 ```
