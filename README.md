@@ -284,3 +284,197 @@ NaN则是充满风险的，因为NaN和任何数都是不相等的。
 nan := math.NaN()
 fmt.Println(nan == nan, nan < nan, nan > nan)       // false, flase, false
 ```
+
+### 复数
+Go语言提供了两种精度的复数类型：complex64和complex128，分别对应float32和float64两种浮点数精度。内置的complex函数用于构建复数，内建的
+real和imag函数分别返回复数的实部和虚部：
+```
+var x complex128 = complex(1, 2)    // 1+2i
+var y complex128 = complex(3, 4)    // 3+4i
+fmt.Println(x*y)                    // -5+10i
+fmt.Println(real(x*y))              // -5
+fmt.Println(imag(x*y))              // 10
+```
+math/cmplx包提供了复数处理的许多函数，例如求复数的平方根函数和求幂函数：
+```
+fmt.Println(cmplx.Sqrt(-1))     // 0+1i
+```
+下面的程序使用complex128复数算法生成一个Mandelbrot图像：
+[gopl-zh-learn/ch3/mandelbrot](ch3/mandelbrot.go)
+```
+package main
+
+import (
+	"image"
+	"image/color"
+	"image/png"
+	"math/cmplx"
+	"os"
+)
+
+func main() {
+	const (
+		xmin, ymin, xmax, ymax = -2, -2, +2, +2
+		width, height          = 1024, 1024
+	)
+
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
+	for py := 0; py < height; py++ {
+		y := float64(py)/height*(ymax-ymin) + ymin
+		for px := 0; px < width; px++ {
+			x := float64(px)/width*(xmax-xmin) + xmin
+			z := complex(x, y)
+			img.Set(px, py, mandelbrot(z))
+		}
+	}
+	png.Encode(os.Stdout, img)
+}
+
+func mandelbrot(z complex128) color.Color {
+	const iterations = 200
+	const contrast = 15
+
+	var v complex128
+	for n := uint8(0); n < iterations; n++ {
+		v = v*v + z
+		if cmplx.Abs(v) > 2 {
+			return color.Gray{255 - contrast*n}
+		}
+	}
+	return color.Black
+}
+```
+![img](ch3/a.png)
+
+### 布尔型
+一个布尔类型的值只有两种：true和false。if和for语句的条件部分都是布尔类型的值，并且==和<等比较运算符也会产生布尔型的值。布尔值可以和&&（AND）
+和||（OR）操作符结合，并且有短路行为：如果运算符左边值已经可以确定整个布尔表达式的值，那么运算符右边的值将不再被求值，因此下面的表达式总是安全的：
+```
+s != "" && s[0] == "x"
+```
+其中s[0]操作如果应用于空字符串将会导致panic异常。
+
+布尔值并不会隐式转换为数字值0和1，反之亦然。必须使用一个显式的if语句辅助转换：
+```
+i := 0
+if b {
+    i = 1
+}
+```
+如果经常需要做类似的转换，包装成一个函数会更方便：
+```
+func btoi(b bool) int {
+    if b {
+        return 1
+    }
+    return 0
+}
+```
+
+### 字符串
+一个字符串是一个不可改变的字节序列。字符串可以包含任意的数据，包括byte值0，但是通常是用来包含人类可读的文本。文本字符串通常被解释为采用UTF8编码
+的Unicode码点（rune）序列。
+
+内置的len函数可以返回一个字符串中的字节数目（不是rune字符数目），索引操作s[i]返回第i个字节的字节值：
+```
+s := "hello, world"
+fmt.Println(len(s))         // 12
+fmt.Println(s[0], s[7])     // 104 119
+```
+如果试图访问超出字符串索引范围的字节将会导致panic异常：
+```
+c := s[len(s)]      // panic: index out of range
+```
+第i个字节并不一定是字符串的第i个字符，因为对于非ASCII字符的UTF8编码会要两个或多个字节。子字符串操作s[i:j]基于原始的s字符串的第ige字节开始到
+第j个字节（不包含第j个字节本身）生成一个新的字符串。生成的新字符串将包含j-i个字节:
+```
+fmt.Println(s[0:5])     // hello
+fmt.Println(s[:5])      // world
+fmt.Println(s[7:])      // world
+fmt.Println(s[:]        // hello, world
+```
+#### 字符串和Byte切片
+标准库中有四个包对字符串处理尤为重要：bytes、strings、strconv和unicode包。strings包提供了许多如字符串的查询、替换、比较、截断、拆分和合并
+等功能。
+* bytes包也提供了很多类似功能的函数，但是针对和字符串有着相同结构的[]byte类型。因为字符串是只读的，因此逐步构建字符串会导致大量的内存分配和复制。
+在这种情况下，使用bytes.Buffer类型将会更有效。
+* strconv包提供了布尔型、整数型、浮点型和对应字符串的相互转换，还提供了双引号转义相关的转换。
+* unicode包提供了IsDigit、IsLetter、IsUpper和IsLower等类似功能，它们用于给字符分类。每个函数有一个单一的rune类型的参数，然后返回一个
+布尔值。而像ToUpper和ToLower之类的转换函数将用于rune字符的大小写转换。所有的这些函数都是遵循Unicode标准定义的字母、数字等分类规范。strings
+包也有类似的函数，它们是ToUpper和ToLower，将原始字符串的每个字符都做相应的转换，然后返回新的字符串。
+
+下面的basename函数实现文件名前缀：
+```go
+package main
+
+import "fmt"
+
+func basename(s string) string {
+	for i := len(s) - 1; i >= 0; i-- {
+		if s[i] == '/' {
+			s = s[i+1:]
+			break
+		}
+	}
+
+	for i := len(s) - 1; i >= 0; i-- {
+		if s[i] == '.' {
+			s = s[:i]
+			break
+		}
+	}
+
+	return s
+}
+
+func main() {
+	fmt.Println(basename("a/b/c.go"))   // c
+	fmt.Println(basename("c.d.go"))     // c.d
+	fmt.Println(basename("abc"))        // abc
+}
+```
+使用strings库函数实现：
+```
+func basename2(s string) string {
+	slash := strings.LastIndex(s, "/")
+	s = s[slash+1:]
+	if dot := strings.LastIndex(s, "."); dot >= 0 {
+		s = s[:dot]
+	}
+	return s
+}
+```
+一个字符串是包含的只读字节数组，一旦创建，是不可变的。相比之下，一个字节slice的元素则可以自由地修改。
+字符串和字节slice之间可以相互转换：
+```
+s := "abc"
+b := []byte(s)
+s2 := string(b)
+```
+从概念上讲，一个[]byte(s)转换是分配了一个新的字节数组用于保存字符串数据的拷贝，然后引用这个底层的字节数组。编译器的优化可以避免在一些场景下分配
+和复制字符串数据，但总的来说需要确保在变量b被修改的情况下，原始的s字符串也不会改变。将一个字节slice转到字符串的string(b)操作则是构造一个字符串
+拷贝，以确保s2字符串是只读的。
+
+为了避免转换中不必要的内存分配，bytes包和strings同时提供了许多实用函数。strings包中的六个函数：
+```
+func Contains(s, substr string) bool
+func Count(s, sep string) int
+func Fields(s string) []string
+func HasPrefix(s, prefix string) bool
+func Index(s, sep string) int
+func Join(a []string, sep string) string
+```
+bytes包中也对应的六个函数：
+```
+func Contains(b, subslice []byte) bool
+func Count(s, sep []byte) int
+func Fields(s []byte) [][]byte
+func HasPrefix(s prefix []byte) bool
+func Index(s, sep []byte) int
+func Join(s [][]byte, sep []byte) []byte
+```
+bytes包还提供了Buffer类型用于字节slice的缓存。一个Buffer开始是空的，但是随着string、byte或[]byte等类型数据的写入可以动态增长，一个
+bytes.Buffer变量并不需要初始化，因为零值也是有效的：
+```
+
+```
